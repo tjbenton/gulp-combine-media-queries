@@ -116,7 +116,6 @@ module.exports = function(options) {
   };
 
   var processDocuments = function(doc){
-   log(doc);
    var strCss = '';
    strCss += '@' + (typeof doc.vendor !== 'undefined' ? doc.vendor : '') + 'document ' + doc.document + ' {\n\n';
    doc.rules.forEach(function(item){
