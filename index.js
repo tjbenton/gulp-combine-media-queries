@@ -115,6 +115,20 @@ module.exports = function(options) {
     return strCss;
   };
 
+  var processDocuments = function(doc){
+   log(doc);
+   var strCss = '';
+   strCss += '@' + (typeof doc.vendor !== 'undefined' ? doc.vendor : '') + 'document ' + doc.document + ' {\n\n';
+   doc.rules.forEach(function(item){
+    strCss += commentOrKeyframe(item);
+    strCss += commentOrRule(item);
+    strCss += commentOrDeclaration(item);
+   });
+   strCss += '}\n\n';
+
+   return strCss;
+  };
+
   function transform(file, enc, cb) {
 
     if (file.isNull()) {
@@ -137,7 +151,6 @@ module.exports = function(options) {
 
     log('File ' + filename + ' found.');
 
-    processedCSS.imports = [];
     processedCSS.base = [];
     processedCSS.media = [];
     processedCSS.media.all = [];
@@ -148,20 +161,15 @@ module.exports = function(options) {
     processedCSS.media.print = [];
     processedCSS.media.blank = [];
     processedCSS.keyframes = [];
+    processedCSS.imports = [];
+    processedCSS.documents = [];
 
     file.contents = new Buffer(cssJson);
 
     // For every rule in the stylesheet...
     cssJson.stylesheet.rules.forEach(function(rule) {
-
-      // If the rule type is an import
-      if(rule.type === 'import') {
-        processedCSS.imports.push(rule);
-      }
-
       // if the rule is a media query...
       if (rule.type === 'media') {
-
         // Create 'id' based on the query (stripped from spaces and dashes etc.)
         var strMedia = rule.media.replace(/[^A-Za-z0-9]/ig, '');
 
@@ -199,10 +207,13 @@ module.exports = function(options) {
           }
         });
 
-      } else if (rule.type === 'keyframes') {
+      } else if (rule.type === 'keyframes'){
         processedCSS.keyframes.push(rule);
-
-      } else if (rule.type === 'rule' || 'comment') {
+      } else if(rule.type === 'import'){
+        processedCSS.imports.push(rule);
+      } else if (rule.type === "document"){
+       processedCSS.documents.push(rule);
+      } else if (rule.type === 'rule' || 'comment'){
         processedCSS.base.push(rule);
       }
     });
@@ -278,13 +289,6 @@ module.exports = function(options) {
       return determineSortOrder(a, b, true);
     });
 
-    // Function to output CSS Imports
-    var outputImports = function(base){
-      base.forEach(function (rule) {
-        strStyles += processImport(rule);
-      });
-    };
-
     // Function to output base CSS
     var outputBase = function(base) {
       base.forEach(function(rule) {
@@ -304,14 +308,27 @@ module.exports = function(options) {
         });
       }
 
-    }
-    ;
+    };
 
     // Function to output keyframes
     var outputKeyFrames = function(keyframes) {
       keyframes.forEach(function(keyframe) {
         strStyles += processKeyframes(keyframe);
       });
+    };
+
+    // Function to output CSS Imports
+    var outputImports = function(base){
+      base.forEach(function (rule) {
+        strStyles += processImport(rule);
+      });
+    };
+
+    // Function to output docuement
+    var outputDocuments = function(documents){
+     documents.forEach(function(doc){
+      strStyles += processDocuments(doc)
+     });
     };
 
     // Check if the imports CSS was processed and print them
@@ -339,6 +356,10 @@ module.exports = function(options) {
     // Check if keyframes were processed and print them
     if (processedCSS.keyframes.length !== 0) {
       outputKeyFrames(processedCSS.keyframes);
+    }
+
+    if(processedCSS.documents.length !== 0){
+     outputDocuments(processedCSS.documents);
     }
 
     // Define the new file extension
